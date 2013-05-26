@@ -1,5 +1,5 @@
 <?php
-class Embed_Original extends Plugin {
+class feedspin_embed extends Plugin {
   private $host;
 
 	function init($host) {
