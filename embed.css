@@ -11,3 +11,7 @@ div.postContent iframe.embeddedContent {
 	height : 100%;
 	border-width : 0px;
 }
+
+.tagsPic {
+	background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAwUlEQVR4Xq2TwQrCMBBEd9W73+AX1kshpRCptKRH+6NCr17iLKgsmwT24MCw7SOZw5BlIspUas05Dxow84QRyehApRZ7WQR2k2BPwItcagdMzBwtBEsYoRVwh7cipH15hZffYRRGYugBZ7HhQfGk+EzfHx2iQ01IspwF1OUv8b8BUh7cVXgPz1TRqEqJqqzOUWJ/ApiRTNARnlTwRX2fFQ+f8zucWruwodyr6yF5LovABu8uPKmt3bsLwUKwESNZ/gYb8obj7vn4jwAAAABJRU5ErkJggg==);
+}
