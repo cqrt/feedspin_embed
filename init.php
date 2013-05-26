@@ -25,8 +25,7 @@ class feedspin_embed extends Plugin {
 	function hook_article_button($line) {
 		$id = $line["id"];
 
-		$rv = "<img src=\"plugins/embed_original/button.png\"
-			class='tagsPic' style=\"cursor : pointer\"
+		$rv = "<img class='embedIcon' style=\"cursor : pointer\"
 			onclick=\"embedOriginalArticle($id)\"
 			title='".__('Toggle embed original')."'>";
 
