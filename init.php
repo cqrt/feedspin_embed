@@ -10,22 +10,22 @@ class Embed_Original extends Plugin {
 
 	function about() {
 		return array(1.0,
-			"Try to display original article content inside tt-rss",
-			"fox");
+			"Embed original articles including fullscreen video",
+			"cqrt");
 	}
 
 	function get_js() {
-		return file_get_contents(dirname(__FILE__) . "/init.js");
+		return file_get_contents(dirname(__FILE__) . "/embed.js");
 	}
 
 	function get_css() {
-		return file_get_contents(dirname(__FILE__) . "/init.css");
+		return file_get_contents(dirname(__FILE__) . "/embed.css");
 	}
 
 	function hook_article_button($line) {
 		$id = $line["id"];
 
-		$rv = "<img src=\"plugins/embed_original/button.png\"
+		$rv = "<img src=\"plugins/feedspin_embed/button.png\"
 			class='tagsPic' style=\"cursor : pointer\"
 			onclick=\"embedOriginalArticle($id)\"
 			title='".__('Toggle embed original')."'>";
