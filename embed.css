@@ -17,6 +17,7 @@ div.postContent iframe.embeddedContent {
 	background-repeat: no-repeat;
 	background-size: 12px;
 	background-position: 2px 2px;
+	cursor: pointer;
 	height: 16px;
 	width: 16px;
 }
