@@ -45,7 +45,7 @@ function embedOriginalArticle(id) {
 						src: ti.url,
 						width: (c.parentNode.offsetWidth-5)+'px',
 						height: (c.parentNode.parentNode.offsetHeight-c.parentNode.firstChild.offsetHeight-5)+'px',
-						style: "overflow: auto; border: none; min-height: "+(document.body.clientHeight-40)+"px;",
+						style: "overflow: auto; border: none; min-height: "+(document.body.clientHeight-100)+"px;",
 						sandbox: 'allow-same-origin allow-scripts',
 					});
 
