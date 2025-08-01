@@ -1,68 +1,83 @@
 function embedOriginalArticle(id) {
-  try {
-		var hasSandbox = "sandbox" in document.createElement("iframe");
+    // Check sandbox support immediately
+    if (!("sandbox" in document.createElement("iframe"))) {
+        alert(__("Sorry, your browser does not support sandboxed iframes."));
+        return;
+    }
 
-		if (!hasSandbox) {
-			alert(__("Sorry, your browser does not support sandboxed iframes."));
-			return;
-		}
+    // Find content container with better error handling
+    let container = null;
+    try {
+        if (App.isCombinedMode()) {
+            container = document.querySelector(`div#RROW-${id} .content-inner`);
+        } else if (id == Article.getActive()) {
+            container = document.querySelector(".post .content");
+        }
+    } catch (e) {
+        console.error("Error finding content container:", e);
+        return;
+    }
 
-		var query = "op=pluginhandler&plugin=feedspin_embed&method=getUrl&id=" +
-			param_escape(id);
+    if (!container) {
+        console.warn("Content container not found for article", id);
+        return;
+    }
 
-		var c = false;
+    // Handle existing iframe case
+    const parent = container.parentNode;
+    const existingIframe = parent.querySelector(".embeddedContent");
+    
+    if (existingIframe) {
+        Element.show(container);
+        parent.removeChild(existingIframe);
+        
+        if (App.isCombinedMode()) {
+            Article.cdmMoveToId(id, true);
+        }
+        return;
+    }
 
-		if (isCdmMode()) {
-			c = $$("div#RROW-" + id + " div[class=cdmContentInner]")[0];
-		} else if (id == getActiveArticleId()) {
-			c = $$("div[class=postContent]")[0];
-		}
+    // Prepare and send request
+    const query = {
+        op: "pluginhandler",
+        plugin: "feedspin_embed",
+        method: "getUrl",
+        id: id
+    };
 
-		if (c) {
-			var iframe = c.parentNode.getElementsByClassName("embeddedContent")[0];
+    xhrJson("backend.php", query, (reply) => {
+        if (!reply || !reply.url) {
+            console.error("Invalid response for article embedding", id, reply);
+            return;
+        }
 
-			if (iframe) {
-				Element.show(c);
-				c.parentNode.removeChild(iframe);
+        // Calculate dimensions safely
+        const width = Math.max(parent.offsetWidth - 5, 100);
+        const headerHeight = parent.firstChild ? parent.firstChild.offsetHeight : 40;
+        const height = Math.max(parent.parentNode.offsetHeight - headerHeight - 5, 300);
+        const minHeight = Math.max(document.body.clientHeight - 115, 300);
 
-				if (isCdmMode()) {
-					cdmScrollToArticleId(id, true);
-				}
+        // Create iframe with proper attributes
+        const iframe = new Element("iframe", {
+            class: "embeddedContent",
+            src: reply.url,
+            allow: "autoplay; fullscreen",
+            width: width + 'px',
+            height: height + 'px',
+            style: `overflow: auto; border: none; min-height: ${minHeight}px;`,
+            sandbox: "allow-same-origin allow-scripts allow-presentation",
+            loading: "lazy"
+        });
 
-				return;
-			}
-		}
+        // Toggle visibility and insert
+        Element.hide(container);
+        parent.insertBefore(iframe, container);
 
-		new Ajax.Request("backend.php",	{
-			parameters: query,
-			onComplete: function(transport) {
-				var ti = JSON.parse(transport.responseText);
-
-				if (ti) {
-
-					var iframe = new Element("iframe", {
-						class: "embeddedContent",
-						src: ti.url,
-						width: (c.parentNode.offsetWidth-5)+'px',
-						height: (c.parentNode.parentNode.offsetHeight-c.parentNode.firstChild.offsetHeight-5)+'px',
-						style: "overflow: auto; border: none; min-height: "+(document.body.clientHeight-190)+"px;",
-						sandbox: 'allow-same-origin allow-scripts',
-					});
-
-					if (c) {
-						Element.hide(c);
-						c.parentNode.insertBefore(iframe,c);
-
-						if (isCdmMode()) {
-							cdmScrollToArticleId(id, true);
-						}
-					}
-				}
-
-			} });
-
-
-	} catch (e) {
-		exception_error("embedOriginalArticle", e);
-	}
+        if (App.isCombinedMode()) {
+            Article.cdmMoveToId(id, true);
+        }
+    }, (error) => {
+        console.error("Embed request failed:", error);
+        alert(__("Failed to load article content."));
+    });
 }
