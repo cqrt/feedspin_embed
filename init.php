@@ -1,65 +1,123 @@
 <?php
 class feedspin_embed extends Plugin {
-  private $host;
+    private $host;
 
-	function init($host) {
-		$this->host = $host;
+    public function init($host) {
+        $this->host = $host;
+        $host->add_hook($host::HOOK_ARTICLE_BUTTON, $this);
+    }
 
-		$host->add_hook($host::HOOK_ARTICLE_BUTTON, $this);
-	}
+    public function about() {
+        return [
+            1.1,
+            "Embed original articles including fullscreen video",
+            "cqrt",
+            true
+        ];
+    }
 
-	function about() {
-		return array(1.0,
-			"Embed original articles including fullscreen video",
-			"cqrt");
-	}
+    public function get_js() {
+        $js_path = dirname(__FILE__) . "/embed.js";
+        return file_exists($js_path) ? file_get_contents($js_path) : "console.error('feedspin_embed: JS file missing')";
+    }
 
-	function get_js() {
-		return file_get_contents(dirname(__FILE__) . "/embed.js");
-	}
+    public function get_css() {
+        $css_path = dirname(__FILE__) . "/embed.css";
+        return file_exists($css_path) ? file_get_contents($css_path) : "/* feedspin_embed: CSS file missing */";
+    }
 
-	function get_css() {
-		return file_get_contents(dirname(__FILE__) . "/embed.css");
-	}
+    public function hook_article_button($line) {
+        $id = (int)$line['id'];
+        $title = __('Embed Article'); // Correct translation method
+        
+        return <<<HTML
+            <i class='material-icons' 
+               onclick="embedOriginalArticle({$id})"
+               style='cursor:pointer'
+               title='{$title}'>
+                zoom_out_map
+            </i>
+        HTML;
+    }
+    
+    public function getUrl() {
+        if (!isset($_REQUEST['id'])) {
+            $this->return_error("Missing article ID", 400);
+        }
 
-	function hook_article_button($line) {
-		$id = $line["id"];
+        $id = (int)$_REQUEST['id'];
+        if ($id <= 0) {
+            $this->return_error("Invalid article ID", 400);
+        }
 
-		$rv = "<img src=\"data:image/png;base64,R0lGODlhFAAUAIAAAP///wAAACH5BAEAAAAALAAAAAAUABQAAAIRhI+py+0Po5y02ouz3rz7rxUAOw==\" class=\"embedIcon\" onclick=\"embedOriginalArticle($id)\"
-			border=\"0\" title='".__('Toggle embed original')."'>";
+        $owner_uid = $_SESSION['uid'] ?? null;
+        if (!$owner_uid) {
+            $this->return_error("Authentication required", 401);
+        }
 
-		return $rv;
-	}
-	
-	function getUrl() {
-		$id = db_escape_string($_REQUEST['id']);
+        try {
+            $sth = $this->pdo->prepare(
+                "SELECT ttrss_entries.link 
+                 FROM ttrss_entries
+                 INNER JOIN ttrss_user_entries 
+                    ON ttrss_entries.id = ttrss_user_entries.ref_id
+                 WHERE ttrss_entries.id = :id 
+                    AND ttrss_user_entries.owner_uid = :uid
+                 LIMIT 1"
+            );
+            
+            $sth->execute([':id' => $id, ':uid' => $owner_uid]);
+            $row = $sth->fetch(PDO::FETCH_ASSOC);
 
-		$result = db_query("SELECT link
-				FROM ttrss_entries, ttrss_user_entries
-				WHERE id = '$id' AND ref_id = id AND owner_uid = " .$_SESSION['uid']);
+            if (!$row || empty($row['link'])) {
+                $this->return_error("Article not found", 404);
+            }
 
-		$url = "";
+            $url = $row['link'];
+            $embed_url = $this->generate_embed_url($url);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                "url" => $embed_url,
+                "id" => $id
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Feedspin Embed DB Error: " . $e->getMessage());
+            $this->return_error("Database error", 500);
+        }
+    }
+    
+    private function generate_embed_url($url) {
+        $yt_patterns = [
+            '~youtube\.com/watch\?.*v=([\w-]{11})~',
+            '~youtube\.com/shorts/([\w-]{11})~',
+            '~youtu\.be/([\w-]{11})~'
+        ];
+        
+        $vimeo_pattern = '~vimeo\.com/(\d+)~';
+        
+        foreach ($yt_patterns as $pattern) {
+            if (preg_match($pattern, $url, $matches)) {
+                return "https://www.youtube-nocookie.com/embed/{$matches[1]}?autoplay=1";
+            }
+        }
+        
+        if (preg_match($vimeo_pattern, $url, $matches)) {
+            return "https://player.vimeo.com/video/{$matches[1]}?autoplay=1";
+        }
+        
+        return $url;
+    }
+    
+    private function return_error($message, $http_code = 400) {
+        http_response_code($http_code);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => $message]);
+        exit;
+    }
 
-		if (db_num_rows($result) != 0) {
-			$url = db_fetch_result($result, 0, "link");
-
-		}
-		if (strpos($url, 'youtube') !== FALSE) {
-			$capture = '/(.*?)(?:href="https?:\/\/)?(?:www\.)?(?:youtube\.com(?:\/watch?.*?v=))([\w\-]{10,12}).*$/';
-			$output = 'http://www.youtube.com/embed/$2?autoplay=1&iv_load_policy=3&modestbranding=1';
-			$url = preg_replace($capture, $output, $url);
-		} else 
-		if (strpos($url, 'vimeo') !== FALSE) {
-			$capture = '/https?:\/\/(?:www\.)?vimeo.com\/(?:channels\/([^\/]*)\/|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/';
-			$output = 'http://player.vimeo.com/video/$4?autoplay=1';
-			$url = preg_replace($capture, $output, $url);
-		}
-		print json_encode(array("url" => $url, "id" => $id));
-	}
-	
-	function api_version() {
-		return 2;
-	}
-
+    public function api_version() {
+        return 2;
+    }
 }
-?>
